@@ -1,6 +1,6 @@
 # change these to reflect your Lua installation
 LUA= /usr
-LUAINC= $(LUA)/include
+LUAINC= $(LUA)/include/lua5.3
 LUALIB= $(LUA)/lib
 LUABIN= $(LUA)/bin
 

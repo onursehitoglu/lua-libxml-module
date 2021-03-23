@@ -1,4 +1,6 @@
-#define DDEBUG 0
+/*
+#define DDEBUG 1
+*/
 #include "ddebug.h"
 
 #include "lua.h"
@@ -8,6 +10,7 @@
 #include <libxml/parser.h>
 #include <libxml/xpathInternals.h>
 #include <libxml/tree.h>
+#include <libxml/xmlschemas.h>
 
 #include <string.h>
 
@@ -67,13 +70,16 @@ xmlFirstElementChild(xmlNodePtr parent) {
     return(NULL);
 }
 
-
 static int lua_xmlParseDoc(lua_State *L)
 {
-    const char* string = (char *)luaL_checkstring(L, 1);
+    size_t len;
+    const char* string = (char *)luaL_checklstring(L, 1, &len);
 
     xmlInitParser();
-    xmlDocPtr doc = xmlParseDoc((const xmlChar *)string);
+    LIBXML_TEST_VERSION
+
+    //xmlDocPtr doc = xmlParseDoc((const xmlChar *)string);
+    xmlDocPtr doc = xmlParseMemory(string,len);
 
     if (doc == NULL) {
         lua_pushnil(L);
@@ -85,10 +91,37 @@ static int lua_xmlParseDoc(lua_State *L)
     return 1;
 }
 
+static int lua_xmlDocGetRootElement(lua_State *L)
+{
+	xmlDocPtr doc = (xmlDocPtr) lua_touserdata(L, 1);
+	xmlNodePtr node;
+
+	if (doc == NULL) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	node = xmlDocGetRootElement(doc);
+
+	if (node == NULL) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+    lua_pushlightuserdata(L, node);
+	return 1;
+}
+	
+
 
 static int lua_loadFile(lua_State *L)
 {
     const char* filename = (char *) luaL_checkstring(L, 1);
+
+    xmlInitParser();
+
+    LIBXML_TEST_VERSION
+
     xmlDocPtr doc = xmlParseFile(filename);
 
     if (doc == NULL) {
@@ -106,6 +139,8 @@ static int lua_loadFile(lua_State *L)
 static int lua_initParser(lua_State *L)
 {
     xmlInitParser();
+    LIBXML_TEST_VERSION
+
     return 1;
 }
 
@@ -176,7 +211,7 @@ static int lua_xmlXPathEvalExpression(lua_State *L)
 
 static int lua_findNodes(lua_State *L)
 {
-    const xmlXPathObjectPtr xpathObj  = (xmlXPathObjectPtr)lua_touserdata(L, 1);
+	const xmlXPathObjectPtr xpathObj  = (xmlXPathObjectPtr)lua_touserdata(L, 1);
 
     if (xpathObj == NULL) {
         dd("Error: param shouldn't be nil\n");
@@ -185,6 +220,27 @@ static int lua_findNodes(lua_State *L)
     }
 
     xmlNodeSetPtr nodeset = xpathObj->nodesetval;
+/*
+	int i, nitems = xmlXPathNodeSetGetLength(nodeset);
+
+	if (nitems == 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    lua_newtable(L);
+	for (i = 0;i < nitems ; i++) {
+		xmlNodePtr node = xmlXPathNodeSetItem(nodeset, i);
+		if (node == NULL)
+			break;
+
+        lua_pushlightuserdata(L, node);
+        lua_seti(L, -2, i);
+    }
+
+	xmlXPathFreeNodeSet(nodeset);
+*/
+
     if (nodeset == NULL || xmlXPathNodeSetIsEmpty(nodeset)) {
         dd("there's no result for the xpath expression\n");
         lua_pushnil(L);
@@ -398,7 +454,74 @@ static int lua_xmlCleanupParser(lua_State *L)
     return 0;
 }
 
-static const struct luaL_Reg xpath[] = {
+static int lua_xmlSchemaParser(lua_State *L)
+{
+	xmlSchemaPtr schema;
+	xmlSchemaParserCtxtPtr pctxt;
+
+    const char* filename = (char *) luaL_checkstring(L, 1);
+
+	if ((pctxt = xmlSchemaNewParserCtxt(filename)) == NULL) {
+        lua_pushnil(L);
+        return 1;
+	}
+
+	schema = xmlSchemaParse(pctxt);
+    xmlSchemaFreeParserCtxt(pctxt);
+
+    if (schema == NULL) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    lua_pushlightuserdata(L, schema);
+    return 1;
+}
+
+static int lua_xmlSchemaValidateDoc(lua_State *L)
+{
+    xmlSchemaPtr schema = (xmlSchemaPtr) lua_touserdata(L, 1);
+    xmlDocPtr doc = (xmlDocPtr) lua_touserdata(L, 2);
+
+	xmlSchemaValidCtxtPtr vctxt;
+	int ret;
+	
+	if ((vctxt = xmlSchemaNewValidCtxt(schema)) == NULL) {
+		lua_pushinteger(L, -1); // unexpected error
+		return 1;
+	}
+
+	xmlSchemaSetValidErrors(vctxt, (xmlSchemaValidityErrorFunc) fprintf, (xmlSchemaValidityWarningFunc) fprintf, stderr);
+
+	ret = xmlSchemaValidateDoc(vctxt, doc);
+
+	xmlSchemaFreeValidCtxt(vctxt);
+
+	lua_pushinteger(L, ret); // unexpected error
+	return 1;
+}
+
+static int lua_xmlSchemaFree(lua_State *L)
+{
+    xmlSchemaPtr schema = (xmlSchemaPtr) lua_touserdata(L, 1);
+	
+	if (schema == NULL) {
+		lua_pushinteger(L, -1); // unexpected error
+		return 1;
+	}
+
+	xmlSchemaFree(schema);
+
+	lua_pushinteger(L, 0);
+	
+	return 1;
+}
+
+	
+	
+	
+
+static const struct luaL_Reg xml2[] = {
     {"xmlCleanupParser", lua_xmlCleanupParser},
     {"freeDoc", lua_freeDoc},
     {"freeNode", lua_freeNode},
@@ -406,6 +529,7 @@ static const struct luaL_Reg xpath[] = {
     {"freeXPathObject", lua_freeXPathObject},
     {"loadFile", lua_loadFile},
     {"xmlParseDoc", lua_xmlParseDoc},
+    {"GetRootElement", lua_xmlDocGetRootElement},
     {"newXPathContext", lua_newXPathContext},
     {"registerNs", lua_registerNs},
     {"findNodes", lua_findNodes},
@@ -419,14 +543,26 @@ static const struct luaL_Reg xpath[] = {
     {"findValue", lua_findValue},
     {"initParser", lua_initParser},
     {"xmlXPathEvalExpression", lua_xmlXPathEvalExpression},
+    {"SchemaParser", lua_xmlSchemaParser},
+    {"SchemaValidateDoc", lua_xmlSchemaValidateDoc},
+    {"SchemaFree", lua_xmlSchemaFree},
     {NULL, NULL}
 };
 
 
 int
+//luaopen_lualibxml2(lua_State *L)
 luaopen_libxml2(lua_State *L)
+//luaopen_libxml2_5_3(lua_State *L)
 {
-    luaL_register(L, "xpath", xpath);
+    //luaL_register(L, "xpath", xpath);
+    //lua_register(L, "xpath", xpath);
+	luaL_newlib (L, xml2);
+    lua_setglobal(L,"xml2"); // for they clobber the Holy _Go
+ //   lua_newtable(L);
+ //   luaL_setfuncs (L,xpath,0);
+ //   lua_pushvalue(L,-1);        // pluck these lines out if they offend you
+ //   lua_setglobal(L,"xpath"); // for they clobber the Holy _Go
 
     return 1;
 }

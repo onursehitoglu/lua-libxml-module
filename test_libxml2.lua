@@ -1,25 +1,25 @@
-require("libxml2")
+require("lua-libxml2")
 
-local doc = xpath.loadFile("test.xml")
-local xpc = xpath.newXPathContext(doc)
-local xpathObj = xpath.xmlXPathEvalExpression(xpc, "/log/books")
-local node = xpath.findNodes(xpathObj)
+local doc = xml2.loadFile("test.xml")
+local xpc = xml2.newXPathContext(doc)
+local xml2Obj = xml2.xmlXPathEvalExpression(xpc, "/log/books")
+local node = xml2.findNodes(xml2Obj)
 
 while (node) do
-    local children = xpath.childNode(node)
+    local children = xml2.childNode(node)
     while (children) do
-        nodename = xpath.nodeName(children)
-        local name  = xpath.getAttribute(children, "name")
-        local value = xpath.getAttribute(children, "value")
+        nodename = xml2.nodeName(children)
+        local name  = xml2.getAttribute(children, "name")
+        local value = xml2.getAttribute(children, "value")
         if name and value then
             print(nodename .. "  name = " .. name .. ", value = " .. value)
         end
-        children = xpath.nextNode(children)
+        children = xml2.nextNode(children)
     end
-    node = xpath.nextNode(node)
+    node = xml2.nextNode(node)
 end
 
-xpath.freeXPathObject(xpathObj)
-xpath.freeXPathContext(xpc)
-xpath.freeDoc(doc)
-xpath.xmlCleanupParser()
+xml2.freeXPathObject(xml2Obj)
+xml2.freeXPathContext(xpc)
+xml2.freeDoc(doc)
+xml2.xmlCleanupParser()

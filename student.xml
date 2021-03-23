@@ -1,0 +1,23 @@
+<?xml version = "1.0"?>
+<cls:class xmlns:cls = "http://www.tutorialspoint.com">
+   <cls:student rollno = "393">    
+      <cls:firstname>Dinkar</cls:firstname>
+      <cls:lastname>Kad</cls:lastname>
+      <cls:nickname>Dinkar</cls:nickname>
+      <cls:marks>85</cls:marks>
+   </cls:student>
+   
+   <cls:student rollno = "493">	 
+      <cls:firstname>Vaneet</cls:firstname>
+      <cls:lastname>Gupta</cls:lastname>
+      <cls:nickname>Vinni</cls:nickname>
+      <cls:marks>90</cls:marks>
+   </cls:student>
+   
+   <cls:student rollno = "593">    
+      <cls:firstname>Jasvir</cls:firstname>
+      <cls:lastname>Singh</cls:lastname>
+      <cls:nickname>Jazz</cls:nickname>
+      <cls:marks>90</cls:marks>
+   </cls:student>
+</cls:class>
